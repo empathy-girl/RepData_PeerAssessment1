@@ -1,0 +1,66 @@
+---
+title: "Activity Monitoring Analysis"
+author: "Your Name"
+date: "`r Sys.Date()`"
+output: html_document
+---
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+setwd("/Users/valel/Downloads/PA")
+file_path <- "activity.csv"
+data <- read.csv(file_path, stringsAsFactors = FALSE)
+str(data)
+```{r steps-per-day}
+library(dplyr)
+steps_per_day <- data %>%
+  group_by(date) %>%
+  summarize(total_steps = sum(steps, na.rm = TRUE))
+hist(steps_per_day$total_steps, breaks = 20, main = "Total Steps per Day", xlab = "Total Steps", ylab = "Frequency")
+mean_steps <- mean(steps_per_day$total_steps, na.rm = TRUE)
+median_steps <- median(steps_per_day$total_steps, na.rm = TRUE)
+mean_steps
+median_steps
+```{r daily-pattern}
+average_daily_pattern <- data %>%
+  group_by(interval) %>%
+  summarize(avg_steps = mean(steps, na.rm = TRUE))
+plot(average_daily_pattern$interval, average_daily_pattern$avg_steps, type = "l",
+     main = "Average Daily Activity Pattern", xlab = "5-Minute Interval", ylab = "Average Steps")
+max_interval <- average_daily_pattern[which.max(average_daily_pattern$avg_steps), ]
+max_interval
+```{r imputing-missing-values}
+missing_values <- sum(is.na(data$steps))
+missing_values
+
+imputed_data <- data
+imputed_data$steps <- ifelse(is.na(imputed_data$steps),
+                             average_daily_pattern$avg_steps[match(imputed_data$interval, average_daily_pattern$interval)],
+                             imputed_data$steps)
+
+sum(is.na(imputed_data$steps))
+
+imputed_steps_per_day <- imputed_data %>%
+  group_by(date) %>%
+  summarize(total_steps = sum(steps))
+
+hist(imputed_steps_per_day$total_steps, breaks = 20, main = "Total Steps per Day (Imputed)", xlab = "Total Steps", ylab = "Frequency")
+
+mean_imputed_steps <- mean(imputed_steps_per_day$total_steps)
+median_imputed_steps <- median(imputed_steps_per_day$total_steps)
+
+mean_imputed_steps
+median_imputed_steps
+```{r weekdays-weekends}
+imputed_data$date <- as.Date(imputed_data$date)
+imputed_data$day_type <- ifelse(weekdays(imputed_data$date) %in% c("Saturday", "Sunday"), "weekend", "weekday")
+
+weekday_vs_weekend <- imputed_data %>%
+  group_by(interval, day_type) %>%
+  summarize(avg_steps = mean(steps))
+
+library(ggplot2)
+ggplot(weekday_vs_weekend, aes(x = interval, y = avg_steps, color = day_type)) +
+  geom_line() +
+  facet_wrap(~day_type, ncol = 1) +
+  labs(title = "Activity Patterns: Weekdays vs Weekends",
+       x = "5-Minute Interval", y = "Average Steps")
